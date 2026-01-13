@@ -22,16 +22,21 @@ public class WeatherForecastCache {
 
     private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
 
-    public OpenWeatherForecastResponse get(String key) {
+    public OpenWeatherForecastResponse getFresh(String key) {
         CacheEntry entry = cache.get(key);
         if (entry == null) return null;
 
         if (Instant.now().isAfter(entry.expiresAt)) {
-            cache.remove(key);
-            return null;
+            return null; // expired, but keep it stored for stale fallback
         }
         return entry.response;
     }
+
+    public OpenWeatherForecastResponse getStale(String key) {
+        CacheEntry entry = cache.get(key);
+        return entry == null ? null : entry.response;
+    }
+
 
     public void put(String key, OpenWeatherForecastResponse response, int ttlSeconds) {
         Instant expiresAt = Instant.now().plusSeconds(ttlSeconds);

@@ -11,6 +11,10 @@ import java.time.ZoneOffset;
 import java.util.Comparator;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.client.RestClientResponseException;
+
 
 
 import java.util.List;
@@ -32,14 +36,34 @@ public class WeatherLocationServiceImpl implements WeatherLocationService {
         String openWeatherUnit = unit.equalsIgnoreCase("celsius") ? "metric" : "imperial";
         String cacheKey = "forecast:" + locationId + ":" + openWeatherUnit;
 
-        OpenWeatherForecastResponse response = weatherForecastCache.get(cacheKey);
+        OpenWeatherForecastResponse response = weatherForecastCache.getFresh(cacheKey);
 
         if (response == null) {
-            response = openWeatherClient.fetchForecast(locationId, openWeatherUnit);
-            if (response != null) {
-                weatherForecastCache.put(cacheKey, response, 1800); // 30 min TTL
+            try {
+                response = openWeatherClient.fetchForecast(locationId, openWeatherUnit);
+                if (response != null) {
+                    weatherForecastCache.put(cacheKey, response, 1800); // 30 min TTL
+                }
+            } catch (RestClientResponseException ex) {
+                // Try stale cache fallback
+                OpenWeatherForecastResponse stale = weatherForecastCache.getStale(cacheKey);
+                if (stale != null) {
+                    response = stale;
+                } else if (ex.getStatusCode().value() == 404) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid locationId");
+                } else {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Weather provider unavailable");
+                }
+            } catch (Exception ex) {
+                OpenWeatherForecastResponse stale = weatherForecastCache.getStale(cacheKey);
+                if (stale != null) {
+                    response = stale;
+                } else {
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Weather provider unavailable");
+                }
             }
         }
+
 
         if (response == null || response.list() == null || response.list().isEmpty()) {
             return List.of();

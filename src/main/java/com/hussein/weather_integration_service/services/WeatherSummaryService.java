@@ -33,7 +33,7 @@ public class WeatherSummaryService {
 
                     String cacheKey = "forecast:" + locationId + ":" + openWeatherUnit;
 
-                    OpenWeatherForecastResponse response = weatherForecastCache.get(cacheKey);
+                    OpenWeatherForecastResponse response = weatherForecastCache.getFresh(cacheKey);
 
                     if (response == null) {
 
