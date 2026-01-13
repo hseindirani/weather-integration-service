@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import com.hussein.weather_integration_service.cache.WeatherForecastCache;
+
 
 
 import java.util.List;
@@ -13,10 +15,13 @@ import java.util.List;
 @Service
 public class WeatherSummaryService {
     private final OpenWeatherClient openWeatherClient;
+    private final WeatherForecastCache weatherForecastCache;
 
-    public WeatherSummaryService(OpenWeatherClient openWeatherClient) {
+    public WeatherSummaryService(OpenWeatherClient openWeatherClient, WeatherForecastCache weatherForecastCache) {
         this.openWeatherClient = openWeatherClient;
+        this.weatherForecastCache = weatherForecastCache;
     }
+
 
 
     public List<String> getMatchingLocations(String unit, int temperatureThreshold, List<Long> locationIds) {
@@ -25,8 +30,21 @@ public class WeatherSummaryService {
 
         return locationIds.stream()
                 .filter(locationId -> {
-                    OpenWeatherForecastResponse response =
-                            openWeatherClient.fetchForecast(locationId, openWeatherUnit);
+
+                    String cacheKey = "forecast:" + locationId + ":" + openWeatherUnit;
+
+                    OpenWeatherForecastResponse response = weatherForecastCache.get(cacheKey);
+
+                    if (response == null) {
+
+//                        System.out.println("Cache miss - calling OpenWeather for " + locationId);
+
+                        response = openWeatherClient.fetchForecast(locationId, openWeatherUnit);
+
+                        if (response != null) {
+                            weatherForecastCache.put(cacheKey, response, 1800); // 30 minutes TTL
+                        }
+                    }
 
                     if (response == null || response.list() == null || response.list().isEmpty()) {
                         return false;
