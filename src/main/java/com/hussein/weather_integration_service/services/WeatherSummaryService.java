@@ -7,6 +7,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import com.hussein.weather_integration_service.cache.WeatherForecastCache;
+import org.springframework.web.client.RestClientResponseException;
+
 
 
 
@@ -36,13 +38,25 @@ public class WeatherSummaryService {
                     OpenWeatherForecastResponse response = weatherForecastCache.getFresh(cacheKey);
 
                     if (response == null) {
-
-//                        System.out.println("Cache miss - calling OpenWeather for " + locationId);
-
-                        response = openWeatherClient.fetchForecast(locationId, openWeatherUnit);
-
-                        if (response != null) {
-                            weatherForecastCache.put(cacheKey, response, 1800); // 30 minutes TTL
+                        try {
+                            response = openWeatherClient.fetchForecast(locationId, openWeatherUnit);
+                            if (response != null) {
+                                weatherForecastCache.put(cacheKey, response, 1800);
+                            }
+                        } catch (RestClientResponseException ex) {
+                            OpenWeatherForecastResponse stale = weatherForecastCache.getStale(cacheKey);
+                            if (stale != null) {
+                                response = stale;
+                            } else {
+                                return false; // skip this location
+                            }
+                        } catch (Exception ex) {
+                            OpenWeatherForecastResponse stale = weatherForecastCache.getStale(cacheKey);
+                            if (stale != null) {
+                                response = stale;
+                            } else {
+                                return false; // skip this location
+                            }
                         }
                     }
 
