@@ -1,5 +1,6 @@
 package com.hussein.weather_integration_service.controllers;
 
+import com.hussein.weather_integration_service.clients.OpenWeatherClient;
 import com.hussein.weather_integration_service.dto.WeatherSummaryResponseDto;
 import com.hussein.weather_integration_service.services.WeatherSummaryService;
 import org.springframework.http.HttpStatus;
@@ -17,9 +18,20 @@ import java.util.stream.Stream;
 
 public class WeatherSummaryController {
     private final WeatherSummaryService weatherSummaryService;
-    public WeatherSummaryController(WeatherSummaryService weatherSummaryService) {
+    private final OpenWeatherClient openWeatherClient;
+
+    public WeatherSummaryController(
+            WeatherSummaryService weatherSummaryService,
+            OpenWeatherClient openWeatherClient
+    ) {
         this.weatherSummaryService = weatherSummaryService;
+        this.openWeatherClient = openWeatherClient;
     }
+    @GetMapping("/forecast")
+    public String forecast(@RequestParam long locationId) {
+        return openWeatherClient.fetchForecastRaw(locationId);
+    }
+
     @GetMapping("/summary")
     public WeatherSummaryResponseDto summary(
             @RequestParam String unit,
