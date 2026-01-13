@@ -24,16 +24,6 @@ public class OpenWeatherClient {
         this.apiKey = apiKey;
     }
 
-    public String fetchForecastRaw(long locationId) {
-        return restClient.get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/forecast")
-                        .queryParam("id", locationId)
-                        .queryParam("appid", apiKey)
-                        .build())
-                .retrieve()
-                .body(String.class);
-    }
     public OpenWeatherForecastResponse fetchForecast(long locationId, String unit) {
         return restClient.get()
                 .uri(uriBuilder -> uriBuilder

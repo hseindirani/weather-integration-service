@@ -18,18 +18,12 @@ import java.util.stream.Stream;
 
 public class WeatherSummaryController {
     private final WeatherSummaryService weatherSummaryService;
-    private final OpenWeatherClient openWeatherClient;
+
 
     public WeatherSummaryController(
-            WeatherSummaryService weatherSummaryService,
-            OpenWeatherClient openWeatherClient
-    ) {
+            WeatherSummaryService weatherSummaryService) {
         this.weatherSummaryService = weatherSummaryService;
-        this.openWeatherClient = openWeatherClient;
-    }
-    @GetMapping("/forecast")
-    public String forecast(@RequestParam long locationId) {
-        return openWeatherClient.fetchForecastRaw(locationId);
+
     }
 
     @GetMapping("/summary")
