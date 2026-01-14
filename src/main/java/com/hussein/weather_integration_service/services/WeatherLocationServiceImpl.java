@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.client.RestClientResponseException;
+import com.hussein.weather_integration_service.ratelimit.DailyApiBudget;
 
 
 
@@ -24,10 +25,12 @@ public class WeatherLocationServiceImpl implements WeatherLocationService {
 
     private final OpenWeatherClient openWeatherClient;
     private final WeatherForecastCache weatherForecastCache;
+    private final DailyApiBudget dailyApiBudget;
 
-    public WeatherLocationServiceImpl(OpenWeatherClient openWeatherClient, WeatherForecastCache weatherForecastCache) {
+    public WeatherLocationServiceImpl(OpenWeatherClient openWeatherClient, WeatherForecastCache weatherForecastCache,DailyApiBudget dailyApiBudget) {
         this.openWeatherClient = openWeatherClient;
         this.weatherForecastCache = weatherForecastCache;
+        this.dailyApiBudget = dailyApiBudget;
     }
 
     @Override
@@ -39,30 +42,46 @@ public class WeatherLocationServiceImpl implements WeatherLocationService {
         OpenWeatherForecastResponse response = weatherForecastCache.getFresh(cacheKey);
 
         if (response == null) {
-            try {
-                response = openWeatherClient.fetchForecast(locationId, openWeatherUnit);
-                if (response != null) {
-                    weatherForecastCache.put(cacheKey, response, 1800); // 30 min TTL
-                }
-            } catch (RestClientResponseException ex) {
-                // Try stale cache fallback
+
+            // 1) Budget check BEFORE calling OpenWeather
+            if (!dailyApiBudget.tryConsume()) {
                 OpenWeatherForecastResponse stale = weatherForecastCache.getStale(cacheKey);
                 if (stale != null) {
-                    response = stale;
-                } else if (ex.getStatusCode().value() == 404) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid locationId");
+                    response = stale; // fallback
                 } else {
-                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Weather provider unavailable");
+                    throw new ResponseStatusException(
+                            HttpStatus.SERVICE_UNAVAILABLE,
+                            "Daily OpenWeather API budget exhausted"
+                    );
                 }
-            } catch (Exception ex) {
-                OpenWeatherForecastResponse stale = weatherForecastCache.getStale(cacheKey);
-                if (stale != null) {
-                    response = stale;
-                } else {
-                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Weather provider unavailable");
+            } else {
+                // 2) Budget allowed → try OpenWeather call
+                try {
+                    response = openWeatherClient.fetchForecast(locationId, openWeatherUnit);
+                    if (response != null) {
+                        weatherForecastCache.put(cacheKey, response, 1800); // 30 min TTL
+                    }
+                } catch (RestClientResponseException ex) {
+                    // Try stale cache fallback
+                    OpenWeatherForecastResponse stale = weatherForecastCache.getStale(cacheKey);
+                    if (stale != null) {
+                        response = stale;
+                    } else if (ex.getStatusCode().value() == 404) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid locationId");
+                    } else {
+                        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Weather provider unavailable");
+                    }
+                } catch (Exception ex) {
+                    OpenWeatherForecastResponse stale = weatherForecastCache.getStale(cacheKey);
+                    if (stale != null) {
+                        response = stale;
+                    } else {
+                        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Weather provider unavailable");
+                    }
                 }
             }
         }
+
 
 
         if (response == null || response.list() == null || response.list().isEmpty()) {

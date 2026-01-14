@@ -1,6 +1,7 @@
 package com.hussein.weather_integration_service.controllers;
 
 import com.hussein.weather_integration_service.clients.OpenWeatherClient;
+import com.hussein.weather_integration_service.dto.WeatherSummaryMatchDto;
 import com.hussein.weather_integration_service.dto.WeatherSummaryResponseDto;
 import com.hussein.weather_integration_service.services.WeatherSummaryService;
 import org.springframework.http.HttpStatus;
@@ -59,8 +60,16 @@ public class WeatherSummaryController {
                     "locations must contain only numeric ids"
             );
         }
+        if (locationIds.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "locations must contain at least one numeric id"
+            );
+        }
 
-        List<String> matches = weatherSummaryService.getMatchingLocations(unit, temperature, locationIds);
+        List<WeatherSummaryMatchDto> matches =
+                weatherSummaryService.getMatchingLocations(unit, temperature, locationIds);
+
         return new WeatherSummaryResponseDto(unit, temperature, matches);
 
     }

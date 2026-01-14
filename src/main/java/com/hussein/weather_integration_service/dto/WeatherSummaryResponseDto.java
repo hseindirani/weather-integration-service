@@ -5,5 +5,5 @@ import java.util.List;
 public record WeatherSummaryResponseDto(
         String unit,
         int temperatureThreshold,
-        List<String> matchingLocations
+        List<WeatherSummaryMatchDto> matches
 ) {}

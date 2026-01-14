@@ -33,6 +33,14 @@ public class WeatherLocationsController {
                     "locationId must be a numeric id"
             );
         }
+        if (!"celsius".equalsIgnoreCase(unit) && !"fahrenheit".equalsIgnoreCase(unit)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid unit. Allowed values: celsius or fahrenheit"
+            );
+        }
+
+
 
         return new LocationForecastResponseDto(
                 locationId,
