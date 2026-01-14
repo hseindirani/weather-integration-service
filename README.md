@@ -41,5 +41,7 @@ setx OPENWEATHER_API_KEY "your_key_here"
 ```
 **Run**
 mvn spring-boot:run
+
 **Swagger UI**
+
 http://localhost:8080/swagger-ui/index.html
